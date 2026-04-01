@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Integral Quest</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8c87a;
+    --gold-dim: #8a6d2f;
+    --ink: #0e0c0a;
+    --parchment: #f5ede0;
+    --parchment-dark: #e8d9c4;
+    --red: #8b1a1a;
+    --red-light: #c0392b;
+    --green: #1a5c2e;
+    --green-light: #27ae60;
+    --stone: #2a2420;
+    --stone-light: #3d3530;
+    --mist: rgba(245,237,224,0.07);
+  }
+
+  @keyframes flicker { 0%,100%{opacity:1} 48%{opacity:0.92} 52%{opacity:0.98} }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+  @keyframes attackRight { 0%{transform:translateX(0)} 40%{transform:translateX(18px)} 100%{transform:translateX(0)} }
+  @keyframes attackLeft { 0%{transform:translateX(0)} 40%{transform:translateX(-18px)} 100%{transform:translateX(0)} }
+  @keyframes dimFlash { 0%,100%{filter:brightness(1)} 50%{filter:brightness(0.4)} }
+  @keyframes starFloat { 0%{opacity:0;transform:translateY(0) scale(0)} 30%{opacity:1} 100%{opacity:0;transform:translateY(-40px) scale(1.3)} }
+  @keyframes screenEntrance { from{opacity:0;transform:scale(0.97)} to{opacity:1;transform:scale(1)} }
+  @keyframes torchPulse { 0%,100%{box-shadow:0 0 18px 4px rgba(201,168,76,0.18)} 50%{box-shadow:0 0 28px 8px rgba(201,168,76,0.28)} }
+
+  html, body {
+    width: 100%; min-height: 100vh;
+    background: var(--ink);
+    background-image:
+      radial-gradient(ellipse at 20% 0%, #2a1a0a 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, #1a0f05 0%, transparent 60%),
+      repeating-linear-gradient(0deg, transparent, transparent 80px, rgba(255,255,255,0.012) 80px, rgba(255,255,255,0.012) 81px),
+      repeating-linear-gradient(90deg, transparent, transparent 80px, rgba(255,255,255,0.012) 80px, rgba(255,255,255,0.012) 81px);
+    font-family: 'Crimson Pro', Georgia, serif;
+    color: var(--parchment);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.5rem;
+  }
+
+  #game {
+    width: 100%; max-width: 520px;
+    position: relative;
+  }
+
+  .screen { display: none; animation: screenEntrance 0.4s ease; }
+  .screen.active { display: block; }
+
+  /* ── DECORATIVE BORDER ── */
+  .frame {
+    border: 1px solid var(--gold-dim);
+    border-radius: 4px;
+    padding: 2rem 2rem 1.75rem;
+    position: relative;
+    background: linear-gradient(160deg, #1a1410 0%, #110e0b 100%);
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.08);
+    animation: torchPulse 3s ease-in-out infinite;
+  }
+  .frame::before, .frame::after {
+    content: '✦';
+    position: absolute; color: var(--gold-dim); font-size: 18px; line-height:1;
+  }
+  .frame::before { top: -10px; left: 50%; transform: translateX(-50%); background: #110e0b; padding: 0 8px; }
+  .frame::after { bottom: -10px; left: 50%; transform: translateX(-50%); background: #110e0b; padding: 0 8px; }
+  .corner { position:absolute; color: var(--gold-dim); font-size:12px; line-height:1; }
+  .corner.tl { top:6px; left:8px; } .corner.tr { top:6px; right:8px; }
+  .corner.bl { bottom:6px; left:8px; } .corner.br { bottom:6px; right:8px; }
+
+  /* ── TITLE ── */
+  .game-title {
+    font-family: 'Cinzel', serif;
+    font-size: 2.4rem; font-weight: 700;
+    color: var(--gold);
+    text-align: center;
+    letter-spacing: 0.06em;
+    text-shadow: 0 0 30px rgba(201,168,76,0.4);
+    animation: flicker 5s ease-in-out infinite;
+    margin-bottom: 0.2rem;
+  }
+  .game-sub {
+    text-align: center; font-size: 1rem; font-style: italic;
+    color: rgba(245,237,224,0.5); margin-bottom: 1.75rem; letter-spacing: 0.02em;
+  }
+
+  /* ── DIVIDER ── */
+  .divider {
+    display: flex; align-items: center; gap: 10px; margin: 1.25rem 0;
+    color: var(--gold-dim); font-size: 12px;
+  }
+  .divider::before, .divider::after { content:''; flex:1; height:1px; background: linear-gradient(90deg,transparent,var(--gold-dim),transparent); }
+
+  /* ── START SCREEN ── */
+  .lore-text {
+    font-size: 1.05rem; line-height: 1.75; color: rgba(245,237,224,0.75);
+    text-align: center; margin-bottom: 1.5rem;
+  }
+  .lore-text em { color: var(--gold-light); font-style: italic; }
+
+  .info-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 1.75rem; }
+  .info-box {
+    border: 1px solid rgba(201,168,76,0.2); border-radius: 3px;
+    padding: 10px 6px; text-align: center;
+    background: rgba(201,168,76,0.04);
+  }
+  .info-box .val { font-family: 'Cinzel',serif; font-size: 1.5rem; font-weight:600; color: var(--gold); }
+  .info-box .lbl { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(245,237,224,0.4); margin-top:2px; }
+
+  /* ── BUTTONS ── */
+  .btn-primary {
+    display: block; width: 100%;
+    font-family: 'Cinzel', serif; font-size: 0.95rem; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 13px 20px;
+    background: linear-gradient(180deg, #c9a84c 0%, #a07828 100%);
+    color: var(--ink);
+    border: none; border-radius: 3px; cursor: pointer;
+    position: relative; overflow: hidden;
+    transition: filter 0.2s, transform 0.1s;
+    box-shadow: 0 2px 12px rgba(201,168,76,0.25), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0) scale(0.99); filter:brightness(0.95); }
+  .btn-secondary {
+    display: block; width: 100%;
+    font-family: 'Cinzel', serif; font-size: 0.85rem; font-weight: 400;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 11px 20px; margin-top: 10px;
+    background: transparent;
+    color: rgba(245,237,224,0.5);
+    border: 1px solid rgba(245,237,224,0.12); border-radius: 3px; cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .btn-secondary:hover { color: var(--parchment); border-color: rgba(245,237,224,0.3); }
+
+  /* ── LEVEL INTRO ── */
+  .level-herald {
+    text-align: center; padding: 0.5rem 0 1.5rem;
+  }
+  .herald-icon { font-size: 3.5rem; margin-bottom: 0.75rem; display: block; animation: pulse 2.5s ease-in-out infinite; }
+  .herald-name { font-family: 'Cinzel',serif; font-size: 1.4rem; color: var(--gold); margin-bottom: 0.5rem; }
+  .herald-rule { font-size: 1.05rem; font-style: italic; color: rgba(245,237,224,0.65); line-height:1.6; }
+  .herald-rule code { font-style:normal; color: var(--gold-light); background: rgba(201,168,76,0.08); padding: 2px 6px; border-radius:2px; font-family: 'Crimson Pro', serif; }
+
+  /* ── BATTLE SCREEN ── */
+  .battle-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;
+  }
+  .level-pill {
+    font-family:'Cinzel',serif; font-size:0.7rem; font-weight:600;
+    letter-spacing:0.1em; text-transform:uppercase;
+    padding: 4px 10px; border: 1px solid var(--gold-dim); border-radius:2px;
+    color: var(--gold-dim);
+  }
+  .score-display { font-family:'Cinzel',serif; font-size:0.9rem; color: var(--gold); }
+
+  /* Combat zone */
+  .combat-zone {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin: 0.75rem 0 1.25rem; gap: 12px;
+  }
+  .combatant { flex: 1; }
+  .combatant-label { font-size: 0.72rem; letter-spacing:0.08em; text-transform:uppercase; color: rgba(245,237,224,0.35); margin-bottom:4px; }
+  .combatant-name { font-family:'Cinzel',serif; font-size:0.9rem; color: var(--parchment); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hp-track { height: 6px; background: rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; }
+  .hp-fill { height:100%; border-radius:3px; transition: width 0.5s cubic-bezier(.4,0,.2,1); }
+  .hp-fill.player { background: linear-gradient(90deg,#1a5c2e,#27ae60); }
+  .hp-fill.enemy { background: linear-gradient(90deg,#8b1a1a,#c0392b); }
+  .hp-dots { display:flex; gap:6px; margin-top:6px; }
+  .hp-dot { width:10px; height:10px; border-radius:50%; background: var(--red-light); transition: background 0.3s, transform 0.3s; }
+  .hp-dot.lost { background: rgba(255,255,255,0.1); transform: scale(0.8); }
+
+  .vs-badge {
+    font-family:'Cinzel',serif; font-size:0.85rem; font-weight:700;
+    color: var(--gold-dim); padding: 0 4px; flex-shrink:0; margin-bottom: 14px;
+  }
+  .enemy-combatant { text-align: right; }
+  .enemy-combatant .hp-dots { justify-content: flex-end; }
+  .enemy-combatant .hp-dot { background: var(--red-light); }
+
+  /* Fighter avatars */
+  .avatar-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; }
+  .avatar { font-size: 2.2rem; transition: transform 0.15s; display:inline-block; }
+  .avatar.attack-r { animation: attackRight 0.35s ease; }
+  .avatar.attack-l { animation: attackLeft 0.35s ease; }
+  .avatar.hit { animation: dimFlash 0.4s ease; }
+
+  /* Integral problem */
+  .problem-box {
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 3px; padding: 1.25rem 1.5rem;
+    background: rgba(201,168,76,0.03);
+    text-align: center; margin-bottom: 1rem;
+    position: relative;
+  }
+  .q-counter { font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(245,237,224,0.3); margin-bottom:0.5rem; }
+  .integral-text {
+    font-size: 1.9rem; font-family: 'Crimson Pro', Georgia, serif;
+    color: var(--parchment); font-weight: 300; letter-spacing: 0.02em;
+    margin: 0.25rem 0 0.5rem; line-height:1.3;
+  }
+  .hint-text { font-size:0.85rem; font-style:italic; color:rgba(245,237,224,0.38); }
+
+  /* Answer choices */
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0.75rem; }
+  .choice {
+    padding: 11px 10px;
+    border: 1px solid rgba(245,237,224,0.12); border-radius: 3px;
+    background: rgba(255,255,255,0.02); cursor: pointer;
+    font-family: 'Crimson Pro', serif; font-size: 1.05rem;
+    color: rgba(245,237,224,0.8);
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+    text-align: center; position: relative; overflow: hidden;
+  }
+  .choice:hover:not(:disabled) {
+    background: rgba(201,168,76,0.08); border-color: rgba(201,168,76,0.35);
+    color: var(--gold-light); transform: translateY(-1px);
+  }
+  .choice:disabled { cursor: default; }
+  .choice.correct {
+    background: rgba(26,92,46,0.25); border-color: var(--green-light);
+    color: #7adb9a; transform: none;
+  }
+  .choice.wrong {
+    background: rgba(139,26,26,0.2); border-color: var(--red-light);
+    color: #f08080; transform: none;
+    animation: shake 0.35s ease;
+  }
+
+  /* Feedback */
+  .feedback-bar {
+    min-height: 36px; border-radius: 3px; padding: 8px 14px;
+    font-size: 0.95rem; font-style: italic; text-align: center;
+    transition: all 0.3s;
+  }
+  .feedback-bar.correct { background: rgba(26,92,46,0.2); color: #7adb9a; border: 1px solid rgba(39,174,96,0.25); }
+  .feedback-bar.wrong { background: rgba(139,26,26,0.2); color: #f08080; border: 1px solid rgba(192,57,43,0.25); }
+
+  /* Progress */
+  .progress-track { height: 3px; background: rgba(255,255,255,0.06); border-radius:2px; overflow:hidden; margin-bottom: 1rem; }
+  .progress-fill { height:100%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); border-radius:2px; transition: width 0.5s ease; }
+
+  /* ── END SCREENS ── */
+  .end-screen { text-align:center; padding: 0.5rem 0 1rem; }
+  .end-icon { font-size:3.5rem; margin-bottom:0.75rem; display:block; }
+  .end-title { font-family:'Cinzel',serif; font-size:1.6rem; color:var(--gold); margin-bottom:0.25rem; }
+  .end-score { font-family:'Cinzel',serif; font-size:2.8rem; font-weight:700; color:var(--gold-light); margin: 0.5rem 0 0.1rem; text-shadow:0 0 20px rgba(201,168,76,0.4); }
+  .end-score-lbl { font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(245,237,224,0.35); margin-bottom:1rem; }
+  .end-msg { font-size:1.05rem; font-style:italic; color:rgba(245,237,224,0.6); line-height:1.65; margin-bottom:1.5rem; }
+
+  /* Floating star FX */
+  .star-fx {
+    position:fixed; pointer-events:none; z-index:999;
+    font-size:1.2rem; animation: starFloat 0.7s ease forwards;
+  }
+</style>
+</head>
+<body>
+<div id="game">
+
+  <!-- START -->
+  <div id="start-screen" class="screen active">
+    <div class="frame">
+      <span class="corner tl">◈</span><span class="corner tr">◈</span>
+      <span class="corner bl">◈</span><span class="corner br">◈</span>
+      <div class="game-title">Integral Quest</div>
+      <div class="game-sub">A Calculus Battle Adventure</div>
+      <div class="divider">✦</div>
+      <p class="lore-text">
+        Three monsters guard the Gates of Calculus.<br>
+        Only a scholar who can solve <em>antiderivatives</em><br>
+        may pass. Prove your worth.
+      </p>
+      <div class="info-row">
+        <div class="info-box"><div class="val">3</div><div class="lbl">Levels</div></div>
+        <div class="info-box"><div class="val">9</div><div class="lbl">Problems</div></div>
+        <div class="info-box"><div class="val">3</div><div class="lbl">Lives</div></div>
+      </div>
+      <button class="btn-primary" onclick="startGame()">Begin the Quest</button>
+    </div>
+  </div>
+
+  <!-- LEVEL INTRO -->
+  <div id="level-intro-screen" class="screen">
+    <div class="frame">
+      <span class="corner tl">◈</span><span class="corner tr">◈</span>
+      <span class="corner bl">◈</span><span class="corner br">◈</span>
+      <div class="level-herald">
+        <span class="herald-icon" id="intro-icon"></span>
+        <div class="herald-name" id="intro-name"></div>
+        <div class="divider">✦</div>
+        <div class="herald-rule" id="intro-rule"></div>
+      </div>
+      <button class="btn-primary" onclick="startLevel()">Enter Battle</button>
+    </div>
+  </div>
+
+  <!-- BATTLE -->
+  <div id="battle-screen" class="screen">
+    <div class="frame">
+      <span class="corner tl">◈</span><span class="corner tr">◈</span>
+      <span class="corner bl">◈</span><span class="corner br">◈</span>
+
+      <div class="battle-header">
+        <div class="level-pill" id="level-pill">Level 1</div>
+        <div class="score-display">✦ <span id="score-val">0</span> pts</div>
+      </div>
+
+      <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+
+      <div class="avatar-row">
+        <span class="avatar" id="player-avatar">🧙</span>
+        <span style="font-family:'Cinzel',serif;font-size:0.75rem;color:var(--gold-dim)">VS</span>
+        <span class="avatar" id="enemy-avatar"></span>
+      </div>
+
+      <div class="combat-zone">
+        <div class="combatant">
+          <div class="combatant-label">Scholar</div>
+          <div class="combatant-name">You</div>
+          <div class="hp-track"><div class="hp-fill player" id="player-hp-bar" style="width:100%"></div></div>
+          <div class="hp-dots" id="player-dots"></div>
+        </div>
+        <div class="vs-badge">⚔</div>
+        <div class="combatant enemy-combatant">
+          <div class="combatant-label">Monster</div>
+          <div class="combatant-name" id="enemy-name-display">—</div>
+          <div class="hp-track"><div class="hp-fill enemy" id="enemy-hp-bar" style="width:100%"></div></div>
+          <div class="hp-dots" id="enemy-dots"></div>
+        </div>
+      </div>
+
+      <div class="problem-box">
+        <div class="q-counter" id="q-counter">Question 1 of 3</div>
+        <div class="integral-text" id="integral-display"></div>
+        <div class="hint-text" id="hint-display"></div>
+      </div>
+
+      <div class="choices" id="choices-grid"></div>
+      <div class="feedback-bar" id="feedback-bar"></div>
+      <button class="btn-primary" id="next-btn" style="display:none;margin-top:12px" onclick="nextQuestion()">Continue →</button>
+    </div>
+  </div>
+
+  <!-- DEFEAT -->
+  <div id="defeat-screen" class="screen">
+    <div class="frame">
+      <span class="corner tl">◈</span><span class="corner tr">◈</span>
+      <span class="corner bl">◈</span><span class="corner br">◈</span>
+      <div class="end-screen">
+        <span class="end-icon">💀</span>
+        <div class="end-title">Defeated</div>
+        <div class="divider">✦</div>
+        <div class="end-score" id="defeat-score">0</div>
+        <div class="end-score-lbl">Points Earned</div>
+        <p class="end-msg">The monsters prevail — for now.<br>Review your antiderivative rules and return stronger.</p>
+        <button class="btn-primary" onclick="startGame()">Try Again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VICTORY -->
+  <div id="victory-screen" class="screen">
+    <div class="frame">
+      <span class="corner tl">◈</span><span class="corner tr">◈</span>
+      <span class="corner bl">◈</span><span class="corner br">◈</span>
+      <div class="end-screen">
+        <span class="end-icon">🏆</span>
+        <div class="end-title">Quest Complete!</div>
+        <div class="divider">✦</div>
+        <div class="end-score" id="victory-score">0</div>
+        <div class="end-score-lbl">Total Points</div>
+        <p class="end-msg" id="victory-msg"></p>
+        <button class="btn-primary" onclick="startGame()">Play Again</button>
+        <button class="btn-secondary" onclick="window.location.reload()">Return to Menu</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const LEVELS = [
+  {
+    name: "Level I — The Power Goblin",
+    icon: "👾",
+    enemy: "Power Goblin",
+    enemyIcon: "👾",
+    rule: "Power Rule: <code>∫xⁿ dx = xⁿ⁺¹/(n+1) + C</code>",
+    questions: [
+      { q:"∫ 4x³ dx", hint:"Add 1 to exponent, divide by new exponent", answers:["x⁴ + C","x³ + C","12x² + C","4x⁴ + C"], correct:0 },
+      { q:"∫ 6x² dx", hint:"∫ axⁿ dx = axⁿ⁺¹/(n+1) + C", answers:["3x³ + C","2x³ + C","6x³ + C","6x + C"], correct:1 },
+      { q:"∫ (3x² + 2x) dx", hint:"Integrate each term separately", answers:["6x + 2 + C","x³ + x² + C","3x³ + 2x² + C","x³ + 2x + C"], correct:1 }
+    ]
+  },
+  {
+    name: "Level II — The Trig Dragon",
+    icon: "🐉",
+    enemy: "Trig Dragon",
+    enemyIcon: "🐉",
+    rule: "<code>∫cos(x)dx = sin(x)+C</code><br><code>∫sin(x)dx = −cos(x)+C</code>",
+    questions: [
+      { q:"∫ cos(x) dx", hint:"The antiderivative of cos is sin", answers:["−sin(x)+C","sin(x)+C","cos(x)+C","tan(x)+C"], correct:1 },
+      { q:"∫ sin(3x) dx", hint:"Chain rule: divide by the inner derivative", answers:["cos(3x)+C","3cos(3x)+C","−cos(3x)/3+C","sin(3x)/3+C"], correct:2 },
+      { q:"∫ (2cos(x) + 3) dx", hint:"Integrate each term separately", answers:["2sin(x)+3x+C","−2sin(x)+C","2cos(x)+3+C","sin(x)+3x+C"], correct:0 }
+    ]
+  },
+  {
+    name: "Level III — The Calculus Lich",
+    icon: "💀",
+    enemy: "Calculus Lich",
+    enemyIcon: "☠️",
+    rule: "<code>∫eˣ dx = eˣ + C</code><br>Evaluate definite integrals with <code>F(b)−F(a)</code>",
+    questions: [
+      { q:"∫ eˣ dx", hint:"eˣ is its own antiderivative", answers:["xeˣ+C","eˣ+C","eˣ/x+C","eˣ−1+C"], correct:1 },
+      { q:"∫ e²ˣ dx", hint:"Divide by the coefficient of x", answers:["e²ˣ+C","2e²ˣ+C","e²ˣ/2+C","xe²ˣ+C"], correct:2 },
+      { q:"∫₀² x² dx", hint:"Find antiderivative, then evaluate F(2)−F(0)", answers:["8","8/3","4","2"], correct:1 }
+    ]
+  }
+];
+
+let lvl=0, qIdx=0, playerHP=3, enemyHP=3, score=0, answered=false;
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el = document.getElementById(id);
+  el.classList.add('active');
+  void el.offsetWidth;
+}
+
+function startGame() {
+  lvl=0; qIdx=0; playerHP=3; score=0;
+  showLevelIntro();
+}
+
+function showLevelIntro() {
+  const L = LEVELS[lvl];
+  document.getElementById('intro-icon').textContent = L.icon;
+  document.getElementById('intro-name').textContent = L.name;
+  document.getElementById('intro-rule').innerHTML = L.rule;
+  show('level-intro-screen');
+}
+
+function startLevel() {
+  enemyHP=3; qIdx=0; answered=false;
+  show('battle-screen');
+  renderBattle();
+}
+
+function renderDots(containerId, current, max, cls) {
+  const c = document.getElementById(containerId);
+  c.innerHTML='';
+  for(let i=0;i<max;i++){
+    const d=document.createElement('div');
+    d.className='hp-dot'+(i>=current?' lost':'');
+    c.appendChild(d);
+  }
+}
+
+function renderBattle() {
+  const L = LEVELS[lvl];
+  const q = L.questions[qIdx];
+  answered=false;
+
+  document.getElementById('level-pill').textContent = `Level ${lvl+1} of 3`;
+  document.getElementById('score-val').textContent = score;
+  document.getElementById('enemy-avatar').textContent = L.enemyIcon;
+  document.getElementById('enemy-name-display').textContent = L.enemy;
+  document.getElementById('q-counter').textContent = `Question ${qIdx+1} of 3`;
+  document.getElementById('integral-display').textContent = q.q;
+  document.getElementById('hint-display').textContent = q.hint;
+  document.getElementById('feedback-bar').textContent='';
+  document.getElementById('feedback-bar').className='feedback-bar';
+  document.getElementById('next-btn').style.display='none';
+
+  document.getElementById('player-hp-bar').style.width=(playerHP/3*100)+'%';
+  document.getElementById('enemy-hp-bar').style.width=(enemyHP/3*100)+'%';
+  renderDots('player-dots', playerHP, 3, 'player');
+  renderDots('enemy-dots', enemyHP, 3, 'enemy');
+
+  const prog = (lvl*3+qIdx)/9*100;
+  document.getElementById('progress-fill').style.width=prog+'%';
+
+  const grid = document.getElementById('choices-grid');
+  grid.innerHTML='';
+  q.answers.forEach((ans,i)=>{
+    const btn=document.createElement('button');
+    btn.className='choice'; btn.textContent=ans;
+    btn.onclick=()=>checkAnswer(i, q);
+    grid.appendChild(btn);
+  });
+}
+
+function checkAnswer(i, q) {
+  if(answered) return;
+  answered=true;
+  const btns = document.querySelectorAll('.choice');
+  btns.forEach(b=>b.disabled=true);
+
+  const fb = document.getElementById('feedback-bar');
+  if(i===q.correct){
+    btns[i].classList.add('correct');
+    enemyHP = Math.max(0, enemyHP-1);
+    score += 100;
+    document.getElementById('score-val').textContent=score;
+    document.getElementById('enemy-hp-bar').style.width=(enemyHP/3*100)+'%';
+    renderDots('enemy-dots', enemyHP, 3);
+    fb.textContent='⚔ Correct! Your spell strikes the monster!';
+    fb.className='feedback-bar correct';
+    spawnStar(true);
+    const a=document.getElementById('player-avatar');
+    a.classList.add('attack-r'); setTimeout(()=>a.classList.remove('attack-r'),400);
+    const e=document.getElementById('enemy-avatar');
+    setTimeout(()=>{e.classList.add('hit');setTimeout(()=>e.classList.remove('hit'),400);},150);
+  } else {
+    btns[i].classList.add('wrong');
+    btns[q.correct].classList.add('correct');
+    playerHP = Math.max(0, playerHP-1);
+    document.getElementById('player-hp-bar').style.width=(playerHP/3*100)+'%';
+    renderDots('player-dots', playerHP, 3);
+    fb.textContent=`✗ Wrong — the monster strikes! Answer: ${q.answers[q.correct]}`;
+    fb.className='feedback-bar wrong';
+    const e=document.getElementById('enemy-avatar');
+    e.classList.add('attack-l'); setTimeout(()=>e.classList.remove('attack-l'),400);
+    const a=document.getElementById('player-avatar');
+    setTimeout(()=>{a.classList.add('hit');setTimeout(()=>a.classList.remove('hit'),400);},150);
+  }
+  document.getElementById('next-btn').style.display='block';
+}
+
+function nextQuestion(){
+  if(playerHP<=0){ showDefeat(); return; }
+  if(qIdx<2){
+    qIdx++;
+    renderBattle();
+  } else {
+    if(lvl<2){
+      lvl++;
+      showLevelIntro();
+    } else {
+      showVictory();
+    }
+  }
+}
+
+function showDefeat(){
+  document.getElementById('defeat-score').textContent=score+' pts';
+  show('defeat-screen');
+}
+
+function showVictory(){
+  document.getElementById('victory-score').textContent=score+' pts';
+  let msg = score>=900 ? 'Flawless mastery. You have defeated every monster without error.' :
+            score>=600 ? 'A strong performance — the gates of calculus swing open before you.' :
+            'You survived the quest. Revisit any missed integrals to sharpen your skills.';
+  document.getElementById('victory-msg').textContent=msg;
+  show('victory-screen');
+}
+
+function spawnStar(good){
+  const s=document.createElement('div');
+  s.className='star-fx'; s.textContent=good?'✦':'💥';
+  s.style.left=Math.random()*60+20+'vw';
+  s.style.top=Math.random()*40+20+'vh';
+  document.body.appendChild(s);
+  setTimeout(()=>s.remove(),800);
+}
+</script>
+</body>
+</html>
